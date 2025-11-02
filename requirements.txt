@@ -1,0 +1,10 @@
+jupyter-book
+matplotlib
+numpy
+streamlit
+pandas
+scikit-learn
+Pillow
+joblib
+librosa  # <-- TAMBAHKAN INI
+scipy    # <-- TAMBAHKAN INI
