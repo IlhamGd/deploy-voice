@@ -1,0 +1,22 @@
+# === Dataset & File Besar ===
+# Abaikan folder dataset mentah (yang berisi 200+ file)
+dataset/
+
+# Abaikan folder model SpeechBrain yang diunduh
+pretrained_models/
+
+# === File Tes ===
+# Abaikan file .wav di dalam folder test (jika ada)
+# Biarkan file pendaftaran (enroll) tetap di-upload
+test/*.wav
+
+# Abaikan file audio sementara
+temp_audio.wav
+
+# === File Cache Python ===
+# Folder ini dibuat otomatis oleh Python dan tidak perlu disimpan
+__pycache__/
+
+# === File Lingkungan Virtual (jika Anda pakai) ===
+venv/
+.venv/
