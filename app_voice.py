@@ -7,6 +7,8 @@ import numpy as np
 import pandas as pd
 import joblib  # Atau pickle, sesuaikan dengan cara Anda menyimpan model
 from speechbrain.inference.speaker import SpeakerRecognition
+import torchaudio
+torchaudio.set_audio_backend("soundfile")
 
 # --- KONFIGURASI APLIKASI ---
 st.set_page_config(page_title="Verifikasi Suara", layout="centered")
