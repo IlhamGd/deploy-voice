@@ -1,82 +1,108 @@
 import streamlit as st
-import soundfile as sf
 import numpy as np
 import librosa
+import soundfile as sf
 import os
 from sklearn.metrics.pairwise import cosine_similarity
+import tempfile
 
-# =========================
-# Konfigurasi Awal
-# =========================
-st.title("🔐 Sistem Verifikasi Suara (Offline - Tanpa Hugging Face)")
+# ------------------------------
+# Ekstraksi fitur suara (MFCC)
+# ------------------------------
+def extract_features(file_path):
+    try:
+        y, sr = librosa.load(file_path, sr=None)
+        mfcc = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=20)
+        return np.mean(mfcc.T, axis=0)
+    except Exception as e:
+        st.error(f"Gagal ekstrak fitur dari {file_path}: {e}")
+        return None
 
-BASE_DIR = "voice_database"
-os.makedirs(BASE_DIR, exist_ok=True)
-THRESHOLD = 0.85  # Semakin tinggi semakin ketat
+# ------------------------------
+# Verifikasi identitas pengguna
+# ------------------------------
+def verify_user(audio_path, enroll_dir="enroll"):
+    test_feat = extract_features(audio_path)
+    if test_feat is None:
+        return None, 0.0
 
-# =========================
-# Fungsi Ekstraksi Fitur
-# =========================
-def extract_mfcc(file_path, n_mfcc=13):
-    y, sr = librosa.load(file_path, sr=None)
-    mfcc = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=n_mfcc)
-    return np.mean(mfcc, axis=1).reshape(1, -1)
+    similarities = {}
+    for user in os.listdir(enroll_dir):
+        user_dir = os.path.join(enroll_dir, user)
+        if not os.path.isdir(user_dir):
+            continue
 
-# =========================
-# Fungsi Pendaftaran Suara
-# =========================
-def register_voice(name, audio_file):
-    save_path = os.path.join(BASE_DIR, f"{name}.wav")
-    with open(save_path, "wb") as f:
-        f.write(audio_file.read())
-    st.success(f"✅ Suara {name} berhasil disimpan.")
-    return save_path
+        scores = []
+        for file in os.listdir(user_dir):
+            if file.endswith(".wav"):
+                feat = extract_features(os.path.join(user_dir, file))
+                if feat is not None:
+                    sim = cosine_similarity([test_feat], [feat])[0][0]
+                    scores.append(sim)
+        if scores:
+            similarities[user] = np.mean(scores)
 
-# =========================
-# Fungsi Verifikasi Suara
-# =========================
-def verify_voice(audio_file, registered_name):
-    test_path = "temp_voice.wav"
-    with open(test_path, "wb") as f:
-        f.write(audio_file.read())
+    if not similarities:
+        return None, 0.0
 
-    registered_path = os.path.join(BASE_DIR, f"{registered_name}.wav")
-    if not os.path.exists(registered_path):
-        st.error("❌ Tidak ada data suara untuk nama ini.")
-        return
+    best_user = max(similarities, key=similarities.get)
+    best_score = similarities[best_user]
+    return best_user, best_score
 
-    mfcc_reg = extract_mfcc(registered_path)
-    mfcc_test = extract_mfcc(test_path)
-    sim = cosine_similarity(mfcc_reg, mfcc_test)[0][0]
+# ------------------------------
+# Deteksi kata kunci (buka/tutup)
+# ------------------------------
+def detect_command(audio_path):
+    try:
+        y, sr = librosa.load(audio_path, sr=None)
+        text = ""  # Dummy command recognizer
 
-    if sim >= THRESHOLD:
-        st.success(f"✅ Verifikasi Berhasil! (Similarity: {sim:.2f})")
-    else:
-        st.error(f"❌ Verifikasi Gagal (Similarity: {sim:.2f})")
+        # Kita akan pakai fitur energi + durasi
+        energy = np.mean(np.abs(y))
+        duration = librosa.get_duration(y=y, sr=sr)
 
-    os.remove(test_path)
+        # Sederhana: misal deteksi dengan panjang & energi
+        # (kalau mau real KWS, bisa pakai model kecil nanti)
+        if duration < 1:
+            text = "buka"
+        elif duration > 1:
+            text = "tutup"
 
-# =========================
-# Tampilan Utama
-# =========================
-mode = st.sidebar.radio("Pilih Mode:", ["🗣️ Daftar Suara Baru", "🔍 Verifikasi Suara"])
+        return text
+    except Exception as e:
+        st.error(f"Gagal deteksi perintah: {e}")
+        return None
 
-if mode == "🗣️ Daftar Suara Baru":
-    name = st.text_input("Masukkan nama pengguna:")
-    audio = st.file_uploader("Upload rekaman suara (.wav):", type=["wav"], key="upload_register")
+# ------------------------------
+# UI Streamlit
+# ------------------------------
+st.title("🔐 Sistem Verifikasi Suara - Perintah Buka/Tutup")
+st.caption("Hanya pengguna terdaftar yang dapat memberikan perintah suara 'buka' atau 'tutup'.")
 
-    if st.button("Daftar", key="register_btn") and name and audio:
-        register_voice(name, audio)
-    elif st.button("Daftar", key="register_warn"):
-        st.warning("⚠️ Lengkapi nama dan file suara terlebih dahulu!")
+uploaded_file = st.file_uploader("🎙️ Unggah suara (.wav)", type=["wav"])
 
-elif mode == "🔍 Verifikasi Suara":
-    registered_name = st.text_input("Masukkan nama yang ingin diverifikasi:")
-    audio = st.file_uploader("Upload rekaman baru untuk verifikasi (.wav):", type=["wav"], key="upload_verify")
+if uploaded_file is not None:
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp:
+        tmp.write(uploaded_file.read())
+        temp_audio_path = tmp.name
 
-    if st.button("Verifikasi", key="verify_btn") and registered_name and audio:
-        verify_voice(audio, registered_name)
-    elif st.button("Verifikasi", key="verify_warn"):
-        st.warning("⚠️ Lengkapi nama dan file suara terlebih dahulu!")
+    st.audio(uploaded_file, format="audio/wav")
 
-st.caption("💡 Sistem ini bekerja lokal tanpa internet atau model eksternal (MFCC + Cosine Similarity).")
+    if st.button("Mulai Verifikasi"):
+        with st.spinner("Menganalisis suara..."):
+            user, score = verify_user(temp_audio_path)
+
+            if user and score > 0.85:
+                st.success(f"✅ Pengguna terdeteksi: **{user}** (skor {score:.2f})")
+
+                cmd = detect_command(temp_audio_path)
+                if cmd == "buka":
+                    st.success("🟢 Perintah terdeteksi: **BUKA** — Sistem terbuka.")
+                elif cmd == "tutup":
+                    st.warning("🔴 Perintah terdeteksi: **TUTUP** — Sistem tertutup.")
+                else:
+                    st.info("⚠️ Tidak dapat mengenali perintah.")
+            else:
+                st.error("🚫 Akses ditolak! Suara tidak dikenali.")
+
+        os.remove(temp_audio_path)
