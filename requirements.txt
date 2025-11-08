@@ -2,7 +2,7 @@
 streamlit
 
 # Core dependencies
-torchaudio==2.7.1+cpu
+torchaudio==2.7.1
 
 # Speech & audio processing
 speechbrain
