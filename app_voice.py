@@ -1,108 +1,259 @@
 import streamlit as st
-import pandas as pd
-import numpy as np
-import joblib
-import librosa
+import torch
 import os
-from scipy.stats import skew, kurtosis
+import sys
+import librosa
+import numpy as np
+import pandas as pd
+import joblib  # Atau pickle, sesuaikan dengan cara Anda menyimpan model
+from speechbrain.inference.speaker import SpeakerRecognition
 
-# --- FUNGSI EKSTRAKSI FITUR (WAJIB ADA) ---
-# Ini adalah fungsi yang sama dari Colab Anda
-def ekstrak_fitur(file_audio):
-    """
-    Memuat file audio dan mengekstrak fitur statistik time series.
-    """
+# --- KONFIGURASI APLIKASI ---
+st.set_page_config(page_title="Verifikasi Suara", layout="centered")
+st.title("🔐 Sistem Verifikasi Perintah Suara")
+st.write("Aplikasi ini hanya akan merespon perintah 'Buka' atau 'Tutup' jika diucapkan oleh pengguna yang terdaftar.")
+
+# --- PATH & PENGATURAN MODEL ---
+# Sesuaikan path ini
+PATH_MODEL_KWS = "model_kws.pkl"  # Model 1 (dari PDF Anda)
+PATH_ANDA = "enroll/anda"
+PATH_TEMAN = "enroll/teman"
+THRESHOLD = 0.85  # Mulai dari sini dan sesuaikan!
+
+# --- FUNGSI BANTUAN MODEL 2 (SpeechBrain) ---
+# Fungsi-fungsi ini dari skrip kita sebelumnya
+
+def get_embedding(file_path, model_sv):
+    if not os.path.exists(file_path):
+        st.error(f"File not found: {file_path}")
+        return None
     try:
-        y, sr = librosa.load(file_audio, sr=None) 
-        y, _ = librosa.effects.trim(y, top_db=20) 
-        
-        # Fitur Statistik
-        zcr_mean = np.mean(librosa.feature.zero_crossing_rate(y))
-        zcr_std = np.std(librosa.feature.zero_crossing_rate(y))
-        rms_mean = np.mean(librosa.feature.rms(y=y))
-        rms_std = np.std(librosa.feature.rms(y=y))
-        amp_mean = np.mean(y)
-        amp_std = np.std(y)
-        amp_var = np.var(y)
-        amp_skew = skew(y)
-        amp_kurtosis = kurtosis(y)
-        amp_min = np.min(y)
-        amp_max = np.max(y)
-        
-        return [
-            zcr_mean, zcr_std, rms_mean, rms_std,
-            amp_mean, amp_std, amp_var, amp_skew,
-            amp_kurtosis, amp_min, amp_max
-        ]
-        
+        embedding = model_sv.encode_file(file_path)
+        return embedding.squeeze()
     except Exception as e:
-        print(f"Error memproses {file_audio}: {e}")
+        st.error(f"Error processing {file_path}: {e}")
         return None
 
-# --- KONFIGURASI APLIKASI STREAMLIT ---
-st.set_page_config(page_title="Deteksi Suara 'Buka' & 'Tutup'", layout="centered")
-st.title("🎤 Aplikasi Deteksi Suara")
-st.write("Unggah file audio (.wav) untuk memprediksi apakah isinya 'buka' atau 'tutup'.")
+def get_similarity(emb1, emb2, model_sv):
+    emb1_batch = emb1.unsqueeze(0)
+    emb2_batch = emb2.unsqueeze(0)
+    score = model_sv.similarity(emb1_batch, emb2_batch)
+    return score.item()
 
-# --- 1. Muat Model, Scaler, dan Encoder ---
+def create_master_voiceprint(directory_path, model_sv):
+    embeddings = []
+    if not os.path.isdir(directory_path):
+        st.warning(f"Direktori pendaftaran tidak ditemukan: {directory_path}")
+        return None
+
+    for file_name in os.listdir(directory_path):
+        if file_name.endswith(".wav"):
+            file_path = os.path.join(directory_path, file_name)
+            emb = get_embedding(file_path, model_sv)
+            if emb is not None:
+                embeddings.append(emb)
+    
+    if not embeddings:
+        st.error(f"Tidak ada file .wav ditemukan di {directory_path}")
+        return None
+        
+    master_voiceprint = torch.mean(torch.stack(embeddings), dim=0)
+    return master_voiceprint
+
+# --- LOADING MODEL (DENGAN CACHE) ---
+# Ini agar model tidak di-load ulang setiap kali ada interaksi
+
 @st.cache_resource
-def load_assets():
+def load_model_sv():
+    st.info("Memuat Model Verifikasi Suara (SpeechBrain)...")
     try:
-        model = joblib.load('audio_model.joblib')
-        scaler = joblib.load('audio_scaler.joblib')
-        encoder = joblib.load('audio_encoder.joblib')
-        return model, scaler, encoder
-    except FileNotFoundError:
-        st.error("ERROR: File model (.joblib) tidak ditemukan.")
-        st.info("Pastikan file 'audio_model.joblib', 'audio_scaler.joblib', dan 'audio_encoder.joblib' ada di repository GitHub.")
-        return None, None, None
+        model = SpeakerRecognition.from_hparams(
+            source="speechbrain/spkrec-ecapa-tdnn",
+            savedir="pretrained_models/spkrec-ecapa-tdnn",
+            use_auth_token=False # Tambahkan ini untuk menghindari error 401
+        )
+        st.success("Model Verifikasi Suara siap.")
+        return model
+    except Exception as e:
+        st.exception(e)
+        st.error("Gagal memuat model SpeechBrain. Cek koneksi internet.")
+        return None
 
-model, scaler, encoder = load_assets()
+@st.cache_resource
+def load_model_kws(path):
+    st.info("Memuat Model Pengenal Kata Kunci (KWS)...")
+    if not os.path.exists(path):
+        st.error(f"File model KWS tidak ditemukan di: {path}")
+        return None
+    try:
+        model = joblib.load(path)
+        st.success("Model KWS siap.")
+        return model
+    except Exception as e:
+        st.exception(e)
+        return None
 
-if model:
-    # --- 2. Widget Upload File ---
-    uploaded_file = st.file_uploader("Pilih file .wav", type=["wav"])
-
-    if uploaded_file is not None:
-        # Tampilkan audio player
-        st.audio(uploaded_file, format='audio/wav')
+@st.cache_resource
+def load_voiceprints(_model_sv):
+    st.info("Membuat master voiceprint...")
+    voiceprints = {}
+    
+    vp_a = create_master_voiceprint(PATH_ANDA, _model_sv)
+    if vp_a is not None:
+        voiceprints["anda"] = vp_a
+        st.success("Voiceprint 'anda' dibuat.")
         
-        # Untuk memproses, librosa perlu file path, bukan buffer memori.
-        # Kita simpan sementara.
-        temp_file_path = "temp_audio.wav"
-        with open(temp_file_path, "wb") as f:
-            f.write(uploaded_file.getbuffer())
-
-        # --- 3. Proses Prediksi Saat Tombol Ditekan ---
-        if st.button("Deteksi Suara"):
-            with st.spinner('Menganalisis audio...'):
-                # Ekstrak fitur dari file audio yang di-upload
-                fitur = ekstrak_fitur(temp_file_path)
-                
-                if fitur:
-                    # Ubah fitur menjadi 2D array (sesuai tuntutan scaler)
-                    fitur_2d = np.array(fitur).reshape(1, -1)
-                    
-                    # Scaling fitur
-                    fitur_scaled = scaler.transform(fitur_2d)
-                    
-                    # Prediksi
-                    pred_raw = model.predict(fitur_scaled) # Hasilnya [0] atau [1]
-                    
-                    # Ubah hasil (0/1) kembali ke label ('buka'/'tutup')
-                    pred_label = encoder.inverse_transform(pred_raw) 
-                    
-                    # Tampilkan hasil
-                    if pred_label[0] == 'buka':
-                        st.success(f"### Hasil Prediksi: **BUKA**")
-                    else:
-                        st.error(f"### Hasil Prediksi: **TUTUP**")
-                else:
-                    st.error("Gagal mengekstrak fitur dari file audio.")
+    vp_b = create_master_voiceprint(PATH_TEMAN, _model_sv)
+    if vp_b is not None:
+        voiceprints["teman"] = vp_b
+        st.success("Voiceprint 'teman' dibuat.")
         
-        # Hapus file sementara
-        if os.path.exists(temp_file_path):
-            os.remove(temp_file_path)
+    if not voiceprints:
+        st.error("Gagal membuat voiceprint. Pastikan folder 'enroll' ada.")
+        return None
+    return voiceprints
 
+# --- FUNGSI PIPELINE UTAMA ---
+
+def ekstrak_fitur_kws(audio_file):
+    """
+    PENTING: Fungsi ini HARUS mengekstrak fitur yang SAMA PERSIS
+    dengan yang Anda gunakan untuk melatih Model 1 di Ppreprocessing.pdf.
+    Ini hanya contoh!
+    """
+    y, sr = librosa.load(audio_file, sr=16000)
+    
+    # Preprocessing dari PDF Anda: trim & normalisasi
+    y_trimmed, _ = librosa.effects.trim(y, top_db=20)
+    y_norm = y_trimmed / np.max(np.abs(y_trimmed))
+    
+    # Ekstrak fitur (HARUS SAMA DENGAN PDF ANDA)
+    # [cite_start]Ini hanya contoh dari PDF Anda [cite: 194-212]
+    fitur = {
+        'spectral_centroid': np.mean(librosa.feature.spectral_centroid(y=y_norm, sr=sr)),
+        'spectral_bandwidth': np.mean(librosa.feature.spectral_bandwidth(y=y_norm, sr=sr)),
+        'spectral_rolloff': np.mean(librosa.feature.spectral_rolloff(y=y_norm, sr=sr)),
+        'spectral_contrast': np.mean(librosa.feature.spectral_contrast(y=y_norm, sr=sr)),
+        'spectral_flatness': np.mean(librosa.feature.spectral_flatness(y=y_norm)),
+        'mfcc_delta2_mean': np.mean(librosa.feature.delta(librosa.feature.mfcc(y=y_norm, sr=sr, n_mfcc=13), order=2)),
+        'f0_mean': np.nanmean(librosa.pyin(y_norm, fmin=50, fmax=400, sr=sr)[0]),
+        'rms': np.mean(librosa.feature.rms(y=y_norm)),
+        'duration': librosa.get_duration(y=y_norm, sr=sr),
+        'std_amplitude': np.std(y_norm)
+    }
+    
+    # Mengisi NaN jika ada (misal dari f0)
+    df = pd.DataFrame([fitur]).fillna(0)
+    
+    # Pastikan urutan kolom sama dengan saat training!
+    # Ini hanya contoh berdasarkan 10 fitur akhir di PDF Anda
+    nama_fitur_akhir = [
+        'spectral_centroid', 'spectral_bandwidth', 'spectral_rolloff',
+        'spectral_contrast', 'spectral_flatness', 'mfcc_delta2_mean',
+        'f0_mean', 'rms', 'duration', 'std_amplitude'
+    ]
+    
+    # Filter dan urutkan
+    df = df[nama_fitur_akhir]
+    return df
+
+
+def cek_keyword(audio_file, model_kws):
+    """
+    Menjalankan Model 1 (KWS) untuk mendeteksi kata kunci.
+    """
+    try:
+        fitur = ekstrak_fitur_kws(audio_file)
+        prediksi = model_kws.predict(fitur)
+        return prediksi[0]  # Mengambil hasil prediksi (misal: "buka" atau "tutup")
+    except Exception as e:
+        st.exception(e)
+        st.error("Gagal mengekstrak fitur KWS.")
+        return "error"
+
+def verifikasi_suara(audio_file, model_sv, voiceprints, threshold):
+    """
+    Menjalankan Model 2 (SV) untuk verifikasi pembicara.
+    """
+    try:
+        test_embedding = get_embedding(audio_file, model_sv)
+        if test_embedding is None:
+            return False, 0.0, "Gagal buat embedding"
+
+        best_score = -1.0
+        best_match = "None"
+        
+        for name, master_vp in voiceprints.items():
+            score = get_similarity(test_embedding, master_vp, model_sv)
+            if score > best_score:
+                best_score = score
+                best_match = name
+        
+        if best_score >= threshold:
+            return True, best_score, best_match
+        else:
+            return False, best_score, "None"
+            
+    except Exception as e:
+        st.exception(e)
+        st.error("Gagal saat verifikasi suara.")
+        return False, 0.0, "Error"
+
+# --- MAIN APP ---
+# Memuat semua model saat aplikasi dimulai
+model_sv = load_model_sv()
+model_kws = load_model_kws(PATH_MODEL_KWS)
+voiceprints = load_voiceprints(model_sv)
+
+# Cek jika model gagal di-load
+if not all([model_sv, model_kws, voiceprints]):
+    st.error("Gagal memuat semua model atau voiceprint. Aplikasi tidak bisa berjalan.")
 else:
-    st.warning("Aplikasi tidak dapat dimuat karena aset model tidak ditemukan.")
+    st.header("Upload Audio Perintah (.wav)")
+    uploaded_file = st.file_uploader("Pilih file audio...", type=["wav"])
+    
+    # Buat file audio sementara
+    temp_audio_path = None
+    if uploaded_file is not None:
+        # Simpan file yang di-upload ke disk sementara
+        # karena librosa & speechbrain butuh path file
+        with open("temp_audio.wav", "wb") as f:
+            f.write(uploaded_file.getbuffer())
+        temp_audio_path = "temp_audio.wav"
+        
+        st.audio(temp_audio_path)
+
+    if st.button("Proses Perintah", disabled=(temp_audio_path is None)):
+        if temp_audio_path:
+            with st.spinner("Menganalisis audio..."):
+                
+                # --- LANGKAH 1: Cek Kata Kunci ---
+                st.subheader("Hasil Model 1: Pengenalan Kata Kunci")
+                kata_kunci = cek_keyword(temp_audio_path, model_kws)
+                
+                if kata_kunci in ["buka", "tutup"]:
+                    st.info(f"Kata kunci terdeteksi: **{kata_kunci.upper()}**")
+                    
+                    # --- LANGKAH 2: Verifikasi Suara ---
+                    st.subheader("Hasil Model 2: Verifikasi Suara")
+                    terverifikasi, skor, nama = verifikasi_suara(
+                        temp_audio_path, model_sv, voiceprints, THRESHOLD
+                    )
+                    
+                    st.info(f"Skor kemiripan tertinggi: **{skor:.2%}** (dengan '{nama}')")
+                    
+                    # --- KEPUTUSAN AKHIR ---
+                    st.header("Keputusan Akhir")
+                    if terverifikasi:
+                        st.success(f"✅ DITERIMA. Suara terverifikasi sebagai '{nama}'. Perintah **{kata_kunci.upper()}** dijalankan.")
+                    else:
+                        st.error(f"❌ DITOLAK. Suara tidak dikenal. Perintah **{kata_kunci.upper()}** dibatalkan.")
+                        
+                elif kata_kunci == "error":
+                    st.error("Terjadi error saat memproses kata kunci.")
+                else:
+                    st.header("Keputusan Akhir")
+                    st.warning(f"❌ DITOLAK. Perintah tidak dikenal (terdeteksi sebagai: '{kata_kunci}').")
+
+            # Hapus file sementara
+            os.remove(temp_audio_path)
