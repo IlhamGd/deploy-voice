@@ -1,25 +1,27 @@
 # Streamlit stable
 streamlit==1.39.0
 
-# PyTorch CPU-only (kompatibel untuk Python 3.13)
+# PyTorch CPU build (kompatibel Python 3.13)
 torch==2.7.1+cpu
 torchaudio==2.7.1+cpu
---extra-index-url https://download.pytorch.org/whl/cpu
+-f https://download.pytorch.org/whl/cpu
 
-# SpeechBrain terbaru (kompatibel dengan Torch >=2.7)
+# SpeechBrain stable
 speechbrain==1.0.0
 
-# Audio tools
+# Audio processing
 librosa==0.10.2.post1
 soundfile==0.12.1
 ffmpeg-python==0.2.0
 pydub==0.25.1
 
-# ASR / Hugging Face support
-openai-whisper==20231117
+# Whisper (pakai GitHub karena versi pip error di Python 3.13)
+git+https://github.com/openai/whisper.git
+
+# Hugging Face dependencies
 transformers==4.46.2
 huggingface-hub==0.25.2
 
 # Scientific libs
-numpy==2.1.3
+numpy
 scipy==1.14.1
