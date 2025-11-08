@@ -63,20 +63,20 @@ mode = st.sidebar.radio("Pilih Mode:", ["🗣️ Daftar Suara Baru", "🔍 Verif
 
 if mode == "🗣️ Daftar Suara Baru":
     name = st.text_input("Masukkan nama pengguna:")
-    audio = st.file_uploader("Upload rekaman suara (.wav):", type=["wav"])
+    audio = st.file_uploader("Upload rekaman suara (.wav):", type=["wav"], key="upload_register")
 
-    if st.button("Daftar") and name and audio:
+    if st.button("Daftar", key="register_btn") and name and audio:
         register_voice(name, audio)
-    elif st.button("Daftar"):
+    elif st.button("Daftar", key="register_warn"):
         st.warning("⚠️ Lengkapi nama dan file suara terlebih dahulu!")
 
 elif mode == "🔍 Verifikasi Suara":
     registered_name = st.text_input("Masukkan nama yang ingin diverifikasi:")
-    audio = st.file_uploader("Upload rekaman baru untuk verifikasi (.wav):", type=["wav"])
+    audio = st.file_uploader("Upload rekaman baru untuk verifikasi (.wav):", type=["wav"], key="upload_verify")
 
-    if st.button("Verifikasi") and registered_name and audio:
+    if st.button("Verifikasi", key="verify_btn") and registered_name and audio:
         verify_voice(audio, registered_name)
-    elif st.button("Verifikasi"):
+    elif st.button("Verifikasi", key="verify_warn"):
         st.warning("⚠️ Lengkapi nama dan file suara terlebih dahulu!")
 
 st.caption("💡 Sistem ini bekerja lokal tanpa internet atau model eksternal (MFCC + Cosine Similarity).")
