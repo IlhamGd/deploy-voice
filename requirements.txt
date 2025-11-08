@@ -1,25 +1,24 @@
-# Streamlit versi terbaru yang stabil
+# Streamlit stable
 streamlit==1.39.0
 
-# Gunakan PyTorch versi yang sudah mendukung Python 3.13 (>=2.5)
-torch==2.5.1
-torchaudio==2.5.1
+# PyTorch CPU-only build (lebih kecil dan kompatibel Cloud)
+torch==2.3.1+cpu
+torchaudio==2.3.1+cpu
+--extra-index-url https://download.pytorch.org/whl/cpu
 
-# Gunakan SpeechBrain versi terbaru yang kompatibel
-speechbrain==1.0.0
+# SpeechBrain versi stabil
+speechbrain==0.5.16
 
-# Audio backend
+# Audio backends
 soundfile==0.12.1
-
-# Audio/ASR support
 ffmpeg-python==0.2.0
 pydub==0.25.1
+
+# ASR / Hugging Face support
 openai-whisper==20231117
+transformers==4.44.0
+huggingface-hub==0.24.6
 
-# Hugging Face utils
-transformers==4.46.2
-huggingface-hub==0.25.2
-
-# Scientific stack
-numpy==2.1.3
-scipy
+# Scientific libs
+numpy==1.26.4
+scipy==1.13.1
