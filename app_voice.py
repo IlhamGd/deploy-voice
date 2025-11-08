@@ -94,6 +94,7 @@ def detect_command(audio_source):
             
         return text
     except Exception as e:
+        # Kita sertakan nama file dalam error untuk debug
         st.error(f"Gagal deteksi perintah: {e}")
         return None
 
@@ -120,13 +121,19 @@ if uploaded_file is not None:
     if st.button("Mulai Verifikasi"):
         with st.spinner("Menganalisis suara..."):
             
-            # Mengirim 'uploaded_file' (objek memori) langsung ke fungsi
+            # PANGGILAN PERTAMA (memindahkan cursor ke akhir)
             user, score = verify_user(uploaded_file, ENROLL_DIR)
 
             # Logika UI Anda
             if user and score > 0.85:
                 st.success(f"✅ Pengguna terdeteksi: **{user}** (skor {score:.2f})")
 
+                # === PERBAIKAN ===
+                # Kembalikan cursor file ke awal sebelum membacanya lagi
+                uploaded_file.seek(0)
+                # =================
+
+                # PANGGILAN KEDUA (sekarang berhasil)
                 cmd = detect_command(uploaded_file)
                 
                 if cmd == "buka":
