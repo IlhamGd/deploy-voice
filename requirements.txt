@@ -1,25 +1,20 @@
 # Streamlit app
-streamlit==1.39.0
+streamlit
 
 # Core dependencies
-torch==2.2.2+cpu
 torchaudio==2.2.2+cpu
--f https://download.pytorch.org/whl/cpu
 
 # Speech & audio processing
-speechbrain==0.5.16
-librosa==0.10.2.post1
-soundfile==0.12.1
-ffmpeg-python==0.2.0
-pydub==0.25.1
-
-# Whisper (kompatibel Python 3.10)
-openai-whisper==20231117
+speechbrain
+librosa
+soundfile
+ffmpeg-python
+pydub
 
 # Hugging Face dependencies
-transformers==4.46.2
-huggingface-hub==0.25.2
+transformers
+huggingface-hub
 
 # Scientific & utility libs
-numpy==1.26.4
-scipy==1.14.1
+numpy
+scipy
