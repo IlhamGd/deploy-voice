@@ -1,20 +1,5 @@
-# Streamlit app
-streamlit
-
-# Core dependencies
-torchaudio==2.7.1
-
-# Speech & audio processing
-speechbrain
-librosa
-soundfile
-ffmpeg-python
-pydub
-
-# Hugging Face dependencies
-transformers
-huggingface-hub
-
-# Scientific & utility libs
-numpy
-scipy
+streamlit==1.39.0
+librosa==0.10.2.post1
+soundfile==0.12.1
+numpy==2.1.2
+scikit-learn==1.5.2
