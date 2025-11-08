@@ -1,16 +1,13 @@
-# Streamlit stable
 streamlit==1.39.0
 
-# PyTorch CPU-only build (lebih kecil dan kompatibel Cloud)
+# PyTorch CPU-only
 torch==2.3.1+cpu
 torchaudio==2.3.1+cpu
 --extra-index-url https://download.pytorch.org/whl/cpu
-librosa==0.10.2.post1
 
-# SpeechBrain versi stabil
+# SpeechBrain + dependensi
 speechbrain==0.5.16
-
-# Audio backends
+librosa==0.10.2.post1
 soundfile==0.12.1
 ffmpeg-python==0.2.0
 pydub==0.25.1
