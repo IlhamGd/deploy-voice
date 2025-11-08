@@ -1,24 +1,25 @@
+# Streamlit versi terbaru yang stabil
 streamlit==1.39.0
 
-# Versi PyTorch & Torchaudio yang stabil untuk SpeechBrain
-torch==2.2.0
-torchaudio==2.2.0
+# Gunakan PyTorch versi yang sudah mendukung Python 3.13 (>=2.5)
+torch==2.5.1
+torchaudio==2.5.1
 
-# SpeechBrain yang kompatibel
-speechbrain==0.5.16
+# Gunakan SpeechBrain versi terbaru yang kompatibel
+speechbrain==1.0.0
 
-# Backend audio tambahan agar tidak error di Streamlit Cloud
+# Audio backend
 soundfile==0.12.1
 
-# Model pendukung (opsional tapi umum dipakai)
-transformers==4.44.0
-huggingface-hub==0.24.6
-numpy==1.26.4
-scipy==1.13.1
-
-# Untuk ASR (speech recognition) jika kamu pakai Whisper
-openai-whisper==20231117
+# Audio/ASR support
 ffmpeg-python==0.2.0
-
-# Optional utilitas
 pydub==0.25.1
+openai-whisper==20231117
+
+# Hugging Face utils
+transformers==4.46.2
+huggingface-hub==0.25.2
+
+# Scientific stack
+numpy==2.1.3
+scipy
