@@ -15,10 +15,16 @@ st.write("Aplikasi ini hanya akan merespon perintah 'Buka' atau 'Tutup' jika diu
 
 # --- PATH & PENGATURAN MODEL ---
 # Sesuaikan path ini
-PATH_MODEL_KWS = "model_kws.pkl"  # Model 1 (dari PDF Anda)
-PATH_ANDA = "enroll/anda"
-PATH_TEMAN = "enroll/teman"
-THRESHOLD = 0.85  # Mulai dari sini dan sesuaikan!
+APP_DIR = os.path.dirname(os.path.abspath(__file__))
+
+# Buat semua path lain berdasarkan APP_DIR
+PATH_MODEL_KWS = os.path.join(APP_DIR, "model_kws.pkl")
+PATH_LABEL_ENCODER = os.path.join(APP_DIR, "label_encoder.pkl")
+PATH_ANDA = os.path.join(APP_DIR, "enroll", "v_ilham")
+PATH_TEMAN = os.path.join(APP_DIR, "enroll", "v_danendra")
+
+# Pengaturan threshold (tetap sama)
+THRESHOLD = 0.85  # Sesuaikan ini!
 
 # --- FUNGSI BANTUAN MODEL 2 (SpeechBrain) ---
 # Fungsi-fungsi ini dari skrip kita sebelumnya
