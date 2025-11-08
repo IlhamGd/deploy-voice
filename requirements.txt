@@ -1,10 +1,7 @@
-jupyter-book
-matplotlib
-numpy
 streamlit
-pandas
+torch
+speechbrain
+librosa
 scikit-learn
-Pillow
-joblib
-librosa  # <-- TAMBAHKAN INI
-scipy    # <-- TAMBAHKAN INI
+numpy
+pandas
